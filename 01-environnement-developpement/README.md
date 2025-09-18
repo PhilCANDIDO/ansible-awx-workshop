@@ -263,14 +263,205 @@ Documentation : [Patterns and ad-hoc commands](https://docs.ansible.com/ansible/
 
 ---
 
-## Pour aller plus loin
+## Travaux Pratiques Git – Branche `feature/uptime`
 
-* Modifier le playbook pour ajouter une tâche `uptime` avec `ansible.builtin.command`
-* Créer une branche Git : `feature/premier-playbook`
-* Commit + Push vers GitLab
-* Préparer ce répertoire pour être importé dans AWX (project SCM)
+L’objectif de cet exercice est de mettre en pratique le travail collaboratif avec Git et GitLab.
+
+#### Étape 1 : Créer une nouvelle branche
+
+Depuis le dossier du projet :
+
+```bash
+git checkout -b feature/uptime
+```
+
+Cela crée une branche `feature/uptime` à partir de `main` et vous place dessus.
 
 ---
+
+#### Étape 2 : Créer un nouveau playbook
+
+Créer le fichier `01-environnement-developpement/project/playbook_uptime.yml` avec le contenu suivant :
+
+```yaml
+---
+- name: Playbook to check uptime on managed nodes
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Show system uptime
+      ansible.builtin.command: uptime
+      register: uptime_result
+      changed_when: false
+      tags: uptime
+
+    - name: Display uptime result
+      ansible.builtin.debug:
+        msg: "{{ uptime_result.stdout }}"
+      tags: uptime
+```
+
+---
+
+#### Étape 3 : Vérifier l’exécution du playbook en local
+
+```bash
+cd 01-environnement-developpement/project
+ansible-playbook -i ../inventory/host.ini playbook_uptime.yml --tags uptime
+```
+
+Vous devriez voir s’afficher le temps de disponibilité et la charge système.
+
+---
+
+#### Étape 4 : Ajouter et valider les changements dans Git
+
+```bash
+git add 01-environnement-developpement/project/playbook_uptime.yml
+git commit -m "Ajout du playbook uptime"
+```
+
+---
+
+#### Étape 5 : Pousser la branche vers GitLab
+
+```bash
+git push origin feature/uptime
+```
+
+---
+
+#### Étape 6 : Créer une Merge Request
+
+1. Aller sur GitLab dans le projet correspondant
+2. GitLab proposera automatiquement de créer une Merge Request pour `feature/uptime` → `main`
+3. Ajouter une description du changement
+4. Valider la Merge Request
+
+---
+
+#### Résultat attendu
+
+* La branche `feature/uptime` contient le nouveau playbook
+* Une Merge Request est créée dans GitLab
+* Le code est prêt à être fusionné dans `main` après validation
+
+---
+
+# TP – Collecte des mises à jour disponibles sur Debian
+
+## Objectifs
+
+* Découvrir le module `package_facts` d’Ansible pour collecter les informations sur les paquets installés
+* Utiliser le module `ansible.builtin.command` pour exécuter une commande système (`apt list --upgradable`)
+* Afficher les résultats à l’écran avec le module `debug`
+* Préparer les bases pour un futur rôle de reporting
+
+---
+
+## Étape 1 : Créer un nouveau playbook
+
+Créer le fichier :
+`01-environnement-developpement/project/playbook_update_report.yml`
+
+Contenu :
+
+```yaml
+---
+- name: Collect update information on Debian systems
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Gather installed package facts
+      ansible.builtin.package_facts:
+        manager: auto
+      tags: facts
+
+    - name: Show number of installed packages
+      ansible.builtin.debug:
+        msg: "Number of installed packages: {{ ansible_facts.packages | length }}"
+      tags: facts
+
+    - name: Check for upgradable packages with apt
+      ansible.builtin.command: apt list --upgradable
+      register: upgradable
+      changed_when: false
+      tags: updates
+
+    - name: Display upgradable packages
+      ansible.builtin.debug:
+        msg: "{{ upgradable.stdout_lines }}"
+      when: upgradable.stdout != ""
+      tags: updates
+```
+
+---
+
+## Étape 2 : Exécution du playbook
+
+Lister uniquement les **facts** :
+
+```bash
+ansible-playbook -i ../inventory/host.ini playbook_update_report.yml --tags facts
+```
+
+Lister uniquement les **mises à jour disponibles** :
+
+```bash
+ansible-playbook -i ../inventory/host.ini playbook_update_report.yml --tags updates
+```
+
+Exécution complète :
+
+```bash
+ansible-playbook -i ../inventory/host.ini playbook_update_report.yml
+```
+
+---
+
+## Étape 3 : Interprétation des résultats
+
+* La tâche `package_facts` crée une variable `ansible_facts.packages` contenant tous les paquets installés.
+* La commande `apt list --upgradable` retourne les paquets pour lesquels une mise à jour est disponible.
+* Le `register: upgradable` stocke le résultat, qui est ensuite affiché par `debug`.
+* `changed_when: false` garantit que la tâche est marquée comme "ok" (pas "changed"), car elle ne modifie rien.
+
+---
+
+## Étape 4 : Variation proposée pour aller plus loin
+
+Ajouter une tâche qui sauvegarde le rapport des mises à jour dans un fichier local sur le control node :
+
+```yaml
+    - name: Save update report to file
+      ansible.builtin.copy:
+        dest: "/tmp/update_report_{{ inventory_hostname }}.txt"
+        content: |
+          {{ upgradable.stdout }}
+      delegate_to: localhost
+      run_once: false
+      tags: report
+```
+
+Exécution :
+
+```bash
+ansible-playbook -i ../inventory/host.ini playbook_update_report.yml --tags report
+```
+
+Chaque hôte produira un fichier `update_report_<hostname>.txt` dans `/tmp/` du control node.
+
+---
+
+## Résultat attendu
+
+* Compréhension de la différence entre un module Ansible (`package_facts`) et une commande brute (`command`)
+* Savoir utiliser `register` pour stocker des résultats et les afficher avec `debug`
+* Pouvoir filtrer l’exécution avec des tags (`facts`, `updates`, `report`)
+
 
 ## Pour approfondir
 

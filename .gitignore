@@ -29,6 +29,40 @@ Homestead.json
 .phpactor.json
 auth.json
 
+# Ansible security files
+*.vault
+*.vault.yml
+*.vault.yaml
+vault_pass.txt
+.vault_pass
+.vault_password
+ansible-vault-password
+vault-password.txt
+group_vars/*/vault
+host_vars/*/vault
+**/vault.yml
+**/vault.yaml
+*.enc
+*.encrypted
+
+# Ansible sensitive files
+*.retry
+*.log
+ansible.log
+credentials
+*-credentials.yml
+*-credentials.yaml
+.ansible_vault_password
+
+# SSH keys
+*.pem
+*.key
+*.pub
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+
 # IA generated files
 CLAUDE.md
 .claude/

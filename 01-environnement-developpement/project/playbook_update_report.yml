@@ -1,0 +1,28 @@
+---
+- name: Collect update information on Debian systems
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Gather installed package facts
+      ansible.builtin.package_facts:
+        manager: auto
+      tags: facts
+
+    - name: Show number of installed packages
+      ansible.builtin.debug:
+        msg: "Number of installed packages: {{ ansible_facts.packages | length }}"
+      tags: facts
+
+    - name: Check for upgradable packages with apt
+      ansible.builtin.command: apt list --upgradable
+      register: upgradable
+      changed_when: false
+      tags: updates
+
+    - name: Display upgradable packages
+      ansible.builtin.debug:
+        msg: "{{ upgradable.stdout_lines }}"
+      when: upgradable.stdout != ""
+      tags: updates
