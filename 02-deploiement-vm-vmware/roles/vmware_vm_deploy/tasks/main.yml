@@ -1,0 +1,86 @@
+---
+# Tâches principales pour le déploiement d'une VM VMware
+
+# Vérification des prérequis
+- name: Vérifier que les variables requises sont définies
+  ansible.builtin.assert:
+    that:
+      - vcenter_hostname is defined
+      - vcenter_username is defined
+      - vcenter_password is defined
+      - vcenter_datacenter is defined
+    fail_msg: |
+      ERREUR : Les variables de connexion vCenter ne sont pas définies.
+
+      Assurez-vous d'avoir :
+      1. Créé le fichier group_vars/all/vault.yml depuis vault.yml.example
+      2. Chiffré ce fichier avec: ansible-vault encrypt group_vars/all/vault.yml
+      3. Lancé le playbook avec: --ask-vault-pass
+    success_msg: "✓ Variables vCenter correctement définies"
+
+- name: Afficher les paramètres de la VM à créer
+  ansible.builtin.debug:
+    msg: |
+      Configuration de la nouvelle VM :
+      - Nom: {{ vm_name }}
+      - CPU: {{ vm_cpu }}
+      - RAM: {{ vm_memory }} Mo
+      - Disque: {{ vm_disk }} Go
+      - Réseau: {{ vm_network }}
+      - Template: {{ vm_template }}
+
+# Création de la VM
+- name: Cloner la VM depuis le template
+  community.vmware.vmware_guest:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: false
+    datacenter: "{{ vcenter_datacenter }}"
+    folder: "{{ vm_folder }}"
+    name: "{{ vm_name }}"
+    template: "{{ vm_template }}"
+    datastore: "{{ vm_datastore }}"
+    hardware:
+      memory_mb: "{{ vm_memory }}"
+      num_cpus: "{{ vm_cpu }}"
+      scsi: paravirtual
+    networks:
+      - name: "{{ vm_network }}"
+        type: "{{ 'static' if vm_ip else 'dhcp' }}"
+        ip: "{{ vm_ip if vm_ip else omit }}"
+        netmask: "{{ vm_netmask if vm_netmask else omit }}"
+        gateway: "{{ vm_gateway if vm_gateway else omit }}"
+    disk:
+      - size_gb: "{{ vm_disk }}"
+        type: thin
+        datastore: "{{ vm_datastore }}"
+    state: "{{ vm_state }}"
+    wait_for_ip_address: true
+    wait_for_ip_address_timeout: 300
+  delegate_to: localhost
+  register: vm_result
+
+# Affichage du résultat
+- name: Afficher le résultat du déploiement
+  ansible.builtin.debug:
+    msg: |
+      ✅ VM créée avec succès !
+
+      Détails de la VM :
+      - Nom: {{ vm_result.instance.hw_name }}
+      - UUID: {{ vm_result.instance.hw_product_uuid }}
+      - Adresse IP: {{ vm_result.instance.ipv4 | default('En attente...') }}
+      - État: {{ vm_result.instance.hw_power_status }}
+  when: vm_result is succeeded
+
+- name: Sauvegarder les informations de la VM dans un fichier
+  ansible.builtin.copy:
+    content: |
+      VM Name: {{ vm_result.instance.hw_name }}
+      UUID: {{ vm_result.instance.hw_product_uuid }}
+      IP: {{ vm_result.instance.ipv4 | default('DHCP') }}
+      Created: {{ ansible_date_time.iso8601 }}
+    dest: "./vm_{{ vm_name }}_info.txt"
+  delegate_to: localhost
+  when: vm_result is succeeded

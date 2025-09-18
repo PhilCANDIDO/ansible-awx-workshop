@@ -1,0 +1,21 @@
+---
+# Playbook de déploiement de VM sur VMware vCenter
+#
+# Ce playbook permet de créer une nouvelle machine virtuelle
+# à partir d'un template existant dans vCenter
+#
+# Utilisation :
+# ansible-playbook -i inventory/hosts.ini playbook_vmware.yml --ask-vault-pass
+#
+# Pour passer des variables personnalisées :
+# ansible-playbook -i inventory/hosts.ini playbook_vmware.yml --ask-vault-pass \
+#   -e "vm_name=ma-vm vm_cpu=4 vm_memory=4096"
+
+- name: Deploy a virtual machine on VMware
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  # Rôles à exécuter
+  roles:
+    - vmware_vm_deploy

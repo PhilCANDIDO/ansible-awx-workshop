@@ -1,0 +1,27 @@
+---
+# Valeurs par défaut pour le déploiement de VM VMware
+# Ces valeurs sont utilisées si elles ne sont pas définies ailleurs
+
+# Nom de la machine virtuelle à créer
+vm_name: "ansible-vm-{{ 999 | random }}"
+
+# Ressources matérielles
+vm_cpu: 2              # Nombre de processeurs virtuels
+vm_memory: 2048        # RAM en Mo (2048 = 2 Go)
+vm_disk: 20           # Taille du disque en Go
+
+# Configuration réseau
+vm_network: "VM Network"  # Nom du réseau VMware à utiliser
+
+# Configuration vCenter
+vm_template: "debian12-tpl"    # Template source à cloner
+vm_datastore: "datastore01"    # Stockage où créer la VM
+vm_folder: "/WorkshopVMs"      # Dossier dans vCenter (commence par /)
+
+# Configuration réseau optionnelle (laissez vide pour DHCP)
+vm_ip: ""           # Adresse IP statique (ex: 192.168.1.100)
+vm_netmask: ""      # Masque de sous-réseau (ex: 255.255.255.0)
+vm_gateway: ""      # Passerelle par défaut (ex: 192.168.1.1)
+
+# État de la VM après création
+vm_state: "poweredon"  # poweredon = démarrée, poweredoff = éteinte

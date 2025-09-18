@@ -1,0 +1,21 @@
+---
+# EXEMPLE de fichier vault.yml
+#
+# IMPORTANT : Ce fichier contient un exemple des variables sensibles
+#
+# Instructions :
+# 1. Copiez ce fichier : cp vault.yml.example vault.yml
+# 2. Modifiez vault.yml avec vos vraies valeurs
+# 3. Chiffrez le fichier : ansible-vault encrypt vault.yml
+# 4. Ne JAMAIS commiter vault.yml dans Git (déjà dans .gitignore)
+
+# Connexion au serveur vCenter
+vcenter_hostname: "vcenter.example.com"
+vcenter_username: "administrator@vsphere.local"
+vcenter_password: "MotDePasseSecret"
+
+# Datacenter VMware où créer les VMs
+vcenter_datacenter: "DC1"
+
+# Optionnel : Si vous avez besoin d'un port spécifique (par défaut 443)
+# vcenter_port: 443

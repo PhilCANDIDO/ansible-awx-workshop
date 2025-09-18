@@ -1,0 +1,10 @@
+#cloud-config
+hostname: {{ vm_name }}
+manage_etc_hosts: true
+users:
+  - default
+  - name: ansible
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh-authorized-keys:
+      - {{ lookup('file', '~/.ssh/id_ed25519.pub') }}

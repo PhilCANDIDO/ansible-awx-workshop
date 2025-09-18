@@ -1,0 +1,22 @@
+---
+# Variables globales pour tous les hosts
+# Ces variables sont utilisables dans tous les playbooks et rôles
+
+# Variables par défaut pour les VMs
+# Ces valeurs peuvent être surchargées en ligne de commande avec -e
+vm_default_cpu: 2
+vm_default_memory: 2048
+vm_default_disk: 20
+
+# Configuration réseau par défaut
+vm_default_network: "VM Network"
+
+# Datacenter et infrastructure VMware
+# Ces valeurs dépendent de votre environnement vCenter
+vm_default_datastore: "datastore01"
+vm_default_folder: "/WorkshopVMs"
+vm_default_datacenter: "DC1"
+
+# Template source pour les nouvelles VMs
+# Assurez-vous que ce template existe dans votre vCenter
+vm_default_template: "debian12-tpl"
