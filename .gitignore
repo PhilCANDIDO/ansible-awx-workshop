@@ -31,4 +31,4 @@ auth.json
 
 # IA generated files
 CLAUDE.md
-./claude/
+.claude/
