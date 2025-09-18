@@ -1,0 +1,16 @@
+---
+- name: Playbook to check uptime on managed nodes
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Show system uptime
+      ansible.builtin.command: uptime
+      register: uptime_result
+      changed_when: false
+      tags: uptime
+
+    - name: Display uptime result
+      ansible.builtin.debug:
+        msg: "{{ uptime_result.stdout }}"
+      tags: uptime

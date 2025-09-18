@@ -1,0 +1,14 @@
+---
+- name: Basic Ansible test playbook
+  hosts: all
+  gather_facts: true
+
+  tasks:
+    - name: Ping test
+      ansible.builtin.ping:
+      tags: ping
+
+    - name: Display system facts
+      ansible.builtin.debug:
+        var: ansible_facts['distribution']
+      tags: facts
