@@ -15,40 +15,61 @@ Dans cet atelier, vous allez apprendre à :
 
 ### Logiciels requis
 - ✅ Ansible ≥ 2.16 installé sur votre poste
-- ✅ Python 3.8+ avec le module `pyvmomi`
+- ✅ Python 3.8+ et pip3 installés
 - ✅ Git et VSCode configurés (voir atelier 01)
 
-### Infrastructure VMware
-- ✅ Accès à un serveur vCenter (URL, login, mot de passe)
-- ✅ Un template VM Linux préparé dans vCenter (Debian 12 ou Ubuntu 22.04)
+### Infrastructure VMware (fournie par le formateur)
+- ✅ Accès à un serveur vCenter (credentials fournis pendant l'atelier)
+- ✅ Un template VM Linux préparé dans vCenter : `debian12-tpl`
+  - 📖 [Voir les spécifications complètes du template](TEMPLATE-SPECS.md)
+  - Configuration : DHCP, utilisateur `ansible`, LVM recommandé
 - ✅ Un datastore avec au moins 50 Go d'espace libre
-- ✅ Un réseau VMware configuré (généralement "VM Network")
+- ✅ Un réseau VMware configuré (généralement "VM Network" avec DHCP)
+
+### ⚠️ Note importante
+Les modules Python nécessaires (`pyvmomi`, `requests`, etc.) seront installés à l'étape 1 de l'installation rapide ci-dessous.
 
 ---
 
 ## 🚀 Installation rapide
 
-### Étape 1 : Installer les collections Ansible requises
+### Étape 1 : Installer les dépendances Python
 
 ```bash
 cd 02-deploiement-vm-vmware/
-ansible-galaxy collection install -r requirements.yml
+
+# Installer les modules Python nécessaires pour VMware
+pip3 install -r requirements.txt
+
+# Vérifier que le module PyVmomi est bien installé
+python3 -c "import pyVmomi; print('✅ PyVmomi installé avec succès')"
 ```
 
-### Étape 2 : Configurer les accès vCenter
+### Étape 2 : Installer les collections Ansible requises
+
+```bash
+# Toujours dans le répertoire 02-deploiement-vm-vmware/
+ansible-galaxy collection install -r requirements.yml
+
+# Vérifier l'installation
+ansible-galaxy collection list | grep vmware
+```
+
+### Étape 3 : Configurer les accès vCenter
 
 ```bash
 # Copier le fichier d'exemple
 cp group_vars/all/vault.yml.example group_vars/all/vault.yml
 
-# Éditer avec vos vraies valeurs vCenter
+# Éditer avec vos vraies valeurs vCenter (fournies par le formateur)
 nano group_vars/all/vault.yml
 
 # Chiffrer le fichier pour sécuriser les mots de passe
 ansible-vault encrypt group_vars/all/vault.yml
+# Mot de passe suggéré : AnsibleVault2024! (à noter pour plus tard)
 ```
 
-### Étape 3 : Tester le déploiement
+### Étape 4 : Tester le déploiement
 
 ```bash
 # Déploiement simple avec les valeurs par défaut
@@ -224,6 +245,9 @@ ansible-vault edit group_vars/all/vault.yml
 02-deploiement-vm-vmware/
 ├── playbook_vmware.yml           # Playbook principal
 ├── requirements.yml               # Collections Ansible requises
+├── requirements.txt               # Modules Python requis (pyvmomi, etc.)
+├── execution-environment.yml      # Config pour Execution Environment AWX
+├── build-ee.sh                    # Script de build pour AWX EE
 ├── inventory/
 │   └── hosts.ini                 # Inventaire Ansible
 ├── group_vars/

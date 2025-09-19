@@ -1,0 +1,38 @@
+---
+# Fichier de configuration pour créer un Execution Environment AWX/Ansible Automation Platform
+# Cet EE contiendra toutes les dépendances nécessaires pour l'atelier VMware
+
+version: 3
+
+# Image de base pour l'Execution Environment
+images:
+  base_image:
+    name: 'quay.io/ansible/creator-base:v0.1.0'
+
+# Dépendances Ansible
+dependencies:
+  # Collections Ansible requises
+  galaxy: requirements.yml
+
+  # Packages Python requis
+  python: requirements.txt
+
+  # Packages système additionnels si nécessaire
+  system: |
+    git [platform:rpm]
+    git [platform:dpkg]
+    curl [platform:rpm]
+    curl [platform:dpkg]
+    openssh-clients [platform:rpm]
+    openssh-client [platform:dpkg]
+
+# Options de build additionnelles
+options:
+  package_manager_path: /usr/bin/microdnf
+
+# Étapes additionnelles post-installation
+additional_build_steps:
+  append_final:
+    - RUN echo "Execution Environment for VMware Workshop"
+    - RUN python3 -m pip install --upgrade pip
+    - ENV PYTHONWARNINGS="ignore:Unverified HTTPS request"
