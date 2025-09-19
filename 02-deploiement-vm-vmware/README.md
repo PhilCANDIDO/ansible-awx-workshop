@@ -9,6 +9,8 @@ Dans cet atelier, vous allez apprendre à :
 - ✅ Intégrer votre playbook dans AWX avec un formulaire interactif
 - ✅ Valider le déploiement dans l'interface vSphere
 
+> 🎉 **Succès confirmé !** Ce playbook a été testé avec succès et a créé une VM `ansible-vm-409` avec l'IP `172.20.0.37` sur l'infrastructure vCenter de référence.
+
 ---
 
 ## 📋 Prérequis
@@ -77,7 +79,19 @@ ansible-playbook -i inventory/hosts.ini playbook_vmware.yml --ask-vault-pass
 
 # Déploiement avec des paramètres personnalisés
 ansible-playbook -i inventory/hosts.ini playbook_vmware.yml --ask-vault-pass \
-  -e "vm_name=web-server-01 vm_cpu=4 vm_memory=8192 vm_disk=50"
+  -e "vm_name=server-01 vm_cpu=4 vm_memory=8192 vm_disk=50"
+```
+
+### Étape 5 : Déployer des VMs pour le TP "déploiement des applications"
+
+```bash
+# Déploiement une VM appelée web-server-01 (Webserver)
+ansible-playbook -i inventory/hosts.ini playbook_vmware.yml --ask-vault-pass \
+-e "vm_name=web-server-01"
+
+# Déploiement une VM appelée db-server-01 (Database server)
+ansible-playbook -i inventory/hosts.ini playbook_vmware.yml --ask-vault-pass \
+-e "vm_name=db-server-01"
 ```
 
 ---
@@ -88,34 +102,34 @@ Voici toutes les variables que vous pouvez personnaliser :
 
 ### Variables de la VM
 
-| Variable       | Description                         | Valeur par défaut | Exemple        |
-| -------------- | ----------------------------------- | ----------------- | -------------- |
-| `vm_name`      | Nom de la VM à créer                | `ansible-vm-XXX`  | `web-server-01` |
-| `vm_cpu`       | Nombre de processeurs virtuels      | `2`               | `4`            |
-| `vm_memory`    | RAM en Mo (1024 Mo = 1 Go)          | `2048`            | `8192`         |
-| `vm_disk`      | Taille du disque dur en Go          | `20`              | `50`           |
-| `vm_state`     | État de la VM après création        | `poweredon`       | `poweredoff`   |
+| Variable    | Description                    | Valeur par défaut | Exemple         |
+| ----------- | ------------------------------ | ----------------- | --------------- |
+| `vm_name`   | Nom de la VM à créer           | `ansible-vm-XXX`  | `web-server-01` |
+| `vm_cpu`    | Nombre de processeurs virtuels | `2`               | `4`             |
+| `vm_memory` | RAM en Mo (1024 Mo = 1 Go)     | `2048`            | `8192`          |
+| `vm_disk`   | Taille du disque dur en Go     | `20`              | `50`            |
+| `vm_state`  | État de la VM après création   | `poweredon`       | `poweredoff`    |
 
 ### Variables réseau (optionnelles)
 
-| Variable       | Description                         | Valeur par défaut | Exemple            |
-| -------------- | ----------------------------------- | ----------------- | ------------------ |
-| `vm_network`   | Nom du réseau VMware                | `VM Network`      | `VLAN-100`         |
-| `vm_ip`        | IP statique (vide = DHCP)           | ` ` (vide)        | `192.168.1.100`    |
-| `vm_netmask`   | Masque de sous-réseau               | ` ` (vide)        | `255.255.255.0`    |
-| `vm_gateway`   | Passerelle par défaut               | ` ` (vide)        | `192.168.1.1`      |
+| Variable     | Description               | Valeur par défaut | Exemple         |
+| ------------ | ------------------------- | ----------------- | --------------- |
+| `vm_network` | Nom du réseau VMware      | `VM Network`      | `VLAN-100`      |
+| `vm_ip`      | IP statique (vide = DHCP) | ` ` (vide)        | `192.168.1.100` |
+| `vm_netmask` | Masque de sous-réseau     | ` ` (vide)        | `255.255.255.0` |
+| `vm_gateway` | Passerelle par défaut     | ` ` (vide)        | `192.168.1.1`   |
 
 ### Variables vCenter (obligatoires)
 
-| Variable           | Description                    | À définir dans        |
-| ------------------ | ------------------------------ | --------------------- |
-| `vcenter_hostname` | URL ou IP du serveur vCenter   | `vault.yml`           |
-| `vcenter_username` | Nom d'utilisateur vCenter      | `vault.yml`           |
-| `vcenter_password` | Mot de passe vCenter           | `vault.yml`           |
-| `vcenter_datacenter` | Nom du datacenter VMware     | `vault.yml`           |
-| `vm_template`      | Template source à cloner       | `defaults/main.yml`   |
-| `vm_datastore`     | Datastore pour stocker la VM   | `defaults/main.yml`   |
-| `vm_folder`        | Dossier dans vCenter           | `defaults/main.yml`   |
+| Variable             | Description                  | À définir dans      |
+| -------------------- | ---------------------------- | ------------------- |
+| `vcenter_hostname`   | URL ou IP du serveur vCenter | `vault.yml`         |
+| `vcenter_username`   | Nom d'utilisateur vCenter    | `vault.yml`         |
+| `vcenter_password`   | Mot de passe vCenter         | `vault.yml`         |
+| `vcenter_datacenter` | Nom du datacenter VMware     | `vault.yml`         |
+| `vm_template`        | Template source à cloner     | `defaults/main.yml` |
+| `vm_datastore`       | Datastore pour stocker la VM | `defaults/main.yml` |
+| `vm_folder`          | Dossier dans vCenter         | `defaults/main.yml` |
 
 ---
 
@@ -181,14 +195,14 @@ ansible-playbook -i inventory/hosts.ini playbook_vmware.yml --ask-vault-pass \
 1. Dans le Job Template, cliquer sur **Survey**
 2. Activer le Survey et ajouter ces questions :
 
-| Question              | Variable    | Type    | Défaut  | Requis |
-|----------------------|-------------|---------|---------|--------|
-| Nom de la VM         | `vm_name`   | Text    | -       | Oui    |
-| Nombre de CPU        | `vm_cpu`    | Integer | `2`     | Oui    |
-| RAM (Mo)             | `vm_memory` | Integer | `2048`  | Oui    |
-| Disque (Go)          | `vm_disk`   | Integer | `20`    | Oui    |
-| Réseau               | `vm_network`| Choice  | VM Network | Oui |
-| Adresse IP (optionnel)| `vm_ip`    | Text    | -       | Non    |
+| Question               | Variable     | Type    | Défaut     | Requis |
+| ---------------------- | ------------ | ------- | ---------- | ------ |
+| Nom de la VM           | `vm_name`    | Text    | -          | Oui    |
+| Nombre de CPU          | `vm_cpu`     | Integer | `2`        | Oui    |
+| RAM (Mo)               | `vm_memory`  | Integer | `2048`     | Oui    |
+| Disque (Go)            | `vm_disk`    | Integer | `20`       | Oui    |
+| Réseau                 | `vm_network` | Choice  | VM Network | Oui    |
+| Adresse IP (optionnel) | `vm_ip`      | Text    | -          | Non    |
 
 3. Sauvegarder le Survey
 

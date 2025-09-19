@@ -1,0 +1,11 @@
+VM Name: web-server-01
+UUID: 422a6d5c-1a21-3076-895f-14a12df9fa46
+IP: 172.20.0.46
+Power State: poweredOn
+Guest OS: Debian GNU/Linux 11 (64-bit)
+CPU: 2
+RAM: 2048 MB
+Disk: 20 GB
+Network: VM Network
+Datacenter: Datacenter
+Created: 2025-09-19T16:01:11Z

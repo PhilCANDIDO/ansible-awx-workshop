@@ -1,0 +1,74 @@
+# Configuration du site par défaut
+# {{ ansible_managed }}
+
+# Redirection HTTP vers HTTPS si SSL activé
+{% if nginx_enable_ssl %}
+server {
+    listen {{ nginx_port }};
+    listen [::]:{{ nginx_port }};
+    server_name {{ nginx_server_name }};
+
+    # Redirection vers HTTPS
+    return 301 https://$host$request_uri;
+}
+{% endif %}
+
+# Configuration du serveur principal
+server {
+{% if nginx_enable_ssl %}
+    listen {{ nginx_ssl_port }} ssl http2;
+    listen [::]:{{ nginx_ssl_port }} ssl http2;
+
+    ssl_certificate {{ nginx_ssl_certificate }};
+    ssl_certificate_key {{ nginx_ssl_certificate_key }};
+{% else %}
+    listen {{ nginx_port }};
+    listen [::]:{{ nginx_port }};
+{% endif %}
+
+    server_name {{ nginx_server_name }};
+    root {{ nginx_document_root }};
+    index {{ nginx_index }};
+
+    # Logs spécifiques au site
+    access_log /var/log/nginx/{{ app_name | default('default') }}_access.log;
+    error_log /var/log/nginx/{{ app_name | default('default') }}_error.log;
+
+    # Configuration de sécurité
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Location principale
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    # Interdire l'accès aux fichiers cachés
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Cache pour les fichiers statiques
+    location ~* \.(jpg|jpeg|gif|png|css|js|ico|xml)$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Page d'erreur personnalisée
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+
+    location = /50x.html {
+        root /usr/share/nginx/html;
+    }
+
+    # Health check endpoint
+    location /health {
+        access_log off;
+        add_header Content-Type text/plain;
+        return 200 'OK';
+    }
+}

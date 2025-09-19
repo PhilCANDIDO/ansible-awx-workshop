@@ -1,0 +1,293 @@
+---
+# Tâches principales pour le déploiement de MySQL
+
+- name: Installer les dépendances pour MySQL
+  ansible.builtin.package:
+    name:
+      - gnupg
+      - lsb-release
+      - wget
+    state: present
+  become: true
+  tags:
+    - mysql
+    - packages
+
+- name: Télécharger le package de configuration MySQL APT
+  ansible.builtin.get_url:
+    url: https://dev.mysql.com/get/mysql-apt-config_0.8.34-1_all.deb
+    dest: /tmp/mysql-apt-config.deb
+    mode: '0644'
+    headers:
+      User-Agent: "Wget/1.21.2"
+  become: true
+  tags:
+    - mysql
+    - packages
+
+- name: Préconfigurer le package MySQL APT pour installation non-interactive
+  ansible.builtin.debconf:
+    name: mysql-apt-config
+    question: "{{ item.question }}"
+    value: "{{ item.value }}"
+    vtype: "{{ item.vtype }}"
+  loop:
+    - { question: "mysql-apt-config/select-server", value: "mysql-8.0", vtype: "select" }
+    - { question: "mysql-apt-config/select-product", value: "Ok", vtype: "select" }
+  become: true
+  tags:
+    - mysql
+    - packages
+
+- name: Installer le package de configuration MySQL APT
+  ansible.builtin.apt:
+    deb: /tmp/mysql-apt-config.deb
+    state: present
+  become: true
+  tags:
+    - mysql
+    - packages
+
+- name: Mettre à jour le cache APT après ajout du repository MySQL
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+  tags:
+    - mysql
+    - packages
+
+- name: Installer les packages MySQL et Python
+  ansible.builtin.package:
+    name:
+      - mysql-server
+      - mysql-client
+      - python3-pymysql  # Pour le module mysql Ansible
+      - python3-mysqldb  # Alternative pour certaines distributions
+    state: present
+  become: true
+  tags:
+    - mysql
+    - packages
+
+- name: Créer le répertoire de configuration MySQL
+  ansible.builtin.file:
+    path: /etc/mysql/mysql.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  tags:
+    - mysql
+
+- name: Déployer la configuration MySQL personnalisée
+  ansible.builtin.template:
+    src: my.cnf.j2
+    dest: /etc/mysql/mysql.conf.d/99-ansible.cnf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  become: true
+  notify: restart mysql
+  tags:
+    - mysql
+    - config
+
+- name: Démarrer et activer le service MySQL
+  ansible.builtin.systemd:
+    name: mysql
+    state: started
+    enabled: true
+    daemon_reload: true
+  become: true
+  tags:
+    - mysql
+    - service
+
+- name: Attendre que MySQL soit prêt
+  ansible.builtin.wait_for:
+    port: "{{ mysql_port }}"
+    host: 127.0.0.1
+    delay: 5
+    timeout: 30
+  tags:
+    - mysql
+
+# Configuration initiale de sécurité
+- name: Définir le mot de passe root MySQL
+  community.mysql.mysql_user:
+    name: root
+    password: "{{ mysql_root_password }}"
+    host: "{{ item }}"
+    login_unix_socket: "{{ mysql_socket }}"
+    state: present
+  loop:
+    - localhost
+    - 127.0.0.1
+    - ::1
+    - "{{ ansible_hostname }}"
+  become: true
+  no_log: true
+  ignore_errors: true  # Si déjà configuré
+  tags:
+    - mysql
+    - security
+
+- name: Créer le fichier .my.cnf pour root
+  ansible.builtin.template:
+    src: root.my.cnf.j2
+    dest: /root/.my.cnf
+    owner: root
+    group: root
+    mode: '0600'
+  become: true
+  no_log: true
+  tags:
+    - mysql
+    - security
+
+# Sécurisation MySQL (équivalent mysql_secure_installation)
+- name: Supprimer les utilisateurs anonymes
+  community.mysql.mysql_user:
+    name: ''
+    host: "{{ item }}"
+    state: absent
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  loop:
+    - localhost
+    - "{{ ansible_hostname }}"
+  become: true
+  when: mysql_remove_anonymous_users
+  tags:
+    - mysql
+    - security
+
+- name: Supprimer la base de données de test
+  community.mysql.mysql_db:
+    name: test
+    state: absent
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  become: true
+  when: mysql_remove_test_database
+  tags:
+    - mysql
+    - security
+
+- name: Désactiver l'accès root distant
+  community.mysql.mysql_user:
+    name: root
+    host: "%"
+    state: absent
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  become: true
+  when: mysql_disable_remote_root
+  tags:
+    - mysql
+    - security
+
+# Création de la base de données et de l'utilisateur applicatif
+- name: Créer la base de données application
+  community.mysql.mysql_db:
+    name: "{{ mysql_database }}"
+    encoding: "{{ mysql_charset }}"
+    collation: "{{ mysql_collation }}"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  become: true
+  tags:
+    - mysql
+    - database
+
+- name: Créer l'utilisateur applicatif MySQL
+  community.mysql.mysql_user:
+    name: "{{ mysql_user }}"
+    password: "{{ mysql_password }}"
+    host: "{{ mysql_host }}"
+    priv: "{{ mysql_database }}.*:ALL"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  become: true
+  no_log: true
+  tags:
+    - mysql
+    - database
+
+- name: Flush privileges MySQL
+  community.mysql.mysql_query:
+    query: "FLUSH PRIVILEGES"
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  become: true
+  tags:
+    - mysql
+
+- name: Créer une table de test dans la base
+  community.mysql.mysql_query:
+    query: |
+      CREATE TABLE IF NOT EXISTS {{ mysql_database }}.test_table (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  become: true
+  tags:
+    - mysql
+    - test
+
+- name: Installer ufw si le firewall est activé
+  ansible.builtin.package:
+    name: ufw
+    state: present
+  become: true
+  when: enable_firewall | default(false)
+  tags:
+    - mysql
+    - firewall
+
+- name: Ouvrir les ports du firewall (si activé)
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - "{{ mysql_port }}"
+    - "{{ ansible_ssh_port }}"
+  become: true
+  when: enable_firewall | default(false)
+  tags:
+    - mysql
+    - firewall
+
+- name: Activer le firewall ufw
+  community.general.ufw:
+    state: enabled
+  become: true
+  when: enable_firewall | default(false)
+  tags:
+    - mysql
+    - firewall
+
+- name: Afficher les informations de connexion
+  ansible.builtin.debug:
+    msg: |
+      ✅ MySQL installé et configuré avec succès !
+
+      Connexion :
+      - Host: {{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}
+      - Port: {{ mysql_port }}
+      - Database: {{ mysql_database }}
+      - User: {{ mysql_user }}
+
+      Test de connexion :
+      mysql -h {{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }} -P {{ mysql_port }} -u {{ mysql_user }} -p {{ mysql_database }}
+  tags:
+    - mysql
+    - info

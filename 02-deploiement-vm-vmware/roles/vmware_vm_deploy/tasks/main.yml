@@ -1,6 +1,12 @@
 ---
 # Tâches principales pour le déploiement d'une VM VMware
 
+# Générer un nom unique pour la VM si non défini
+- name: Générer un nom unique pour la VM si nécessaire
+  ansible.builtin.set_fact:
+    vm_name: "ansible-vm-{{ 999 | random }}"
+  when: vm_name | length == 0
+
 # Vérification des prérequis
 - name: Vérifier que les variables requises sont définies
   ansible.builtin.assert:
@@ -9,25 +15,26 @@
       - vcenter_username is defined
       - vcenter_password is defined
       - vcenter_datacenter is defined
-    fail_msg: |
-      ERREUR : Les variables de connexion vCenter ne sont pas définies.
-
-      Assurez-vous d'avoir :
-      1. Créé le fichier group_vars/all/vault.yml depuis vault.yml.example
-      2. Chiffré ce fichier avec: ansible-vault encrypt group_vars/all/vault.yml
-      3. Lancé le playbook avec: --ask-vault-pass
+    fail_msg: 
+      - "ERREUR : Les variables de connexion vCenter ne sont pas définies."
+      - ""
+      - "Assurez-vous d'avoir :"
+      - "1. Créé le fichier group_vars/all/vault.yml depuis vault.yml.example"
+      - "2. Chiffré ce fichier avec: ansible-vault encrypt group_vars/all/vault.yml"
+      - "3. Lancé le playbook avec: --ask-vault-pass"
     success_msg: "✓ Variables vCenter correctement définies"
 
 - name: Afficher les paramètres de la VM à créer
   ansible.builtin.debug:
-    msg: |
-      Configuration de la nouvelle VM :
-      - Nom: {{ vm_name }}
-      - CPU: {{ vm_cpu }}
-      - RAM: {{ vm_memory }} Mo
-      - Disque: {{ vm_disk }} Go
-      - Réseau: {{ vm_network }}
-      - Template: {{ vm_template }}
+    msg:
+      - "Configuration de la nouvelle VM :"
+      - "- Nom: {{ vm_name }}"
+      - "- CPU: {{ vm_cpu }}"
+      - "- RAM: {{ vm_memory }} Mo"
+      - "- Disque: {{ vm_disk }} Go"
+      - "- Réseau: {{ vm_network }}"
+      - "- Template: {{ vm_template }}"
+      - "- Datacenter: {{ vcenter_datacenter }}"
 
 # Création de la VM
 - name: Cloner la VM depuis le template
@@ -64,14 +71,14 @@
 # Affichage du résultat
 - name: Afficher le résultat du déploiement
   ansible.builtin.debug:
-    msg: |
-      ✅ VM créée avec succès !
-
-      Détails de la VM :
-      - Nom: {{ vm_result.instance.hw_name }}
-      - UUID: {{ vm_result.instance.hw_product_uuid }}
-      - Adresse IP: {{ vm_result.instance.ipv4 | default('En attente...') }}
-      - État: {{ vm_result.instance.hw_power_status }}
+    msg: 
+      - "✅ VM créée avec succès !"
+      - ""
+      - "Détails de la VM :"
+      - "- Nom: {{ vm_result.instance.hw_name }}"
+      - "- UUID: {{ vm_result.instance.hw_product_uuid }}"
+      - "- Adresse IP: {{ vm_result.instance.ipv4 | default('En attente...') }}"
+      - "- État: {{ vm_result.instance.hw_power_status }}"
   when: vm_result is succeeded
 
 - name: Sauvegarder les informations de la VM dans un fichier
@@ -80,7 +87,56 @@
       VM Name: {{ vm_result.instance.hw_name }}
       UUID: {{ vm_result.instance.hw_product_uuid }}
       IP: {{ vm_result.instance.ipv4 | default('DHCP') }}
-      Created: {{ ansible_date_time.iso8601 }}
+      Power State: {{ vm_result.instance.hw_power_status }}
+      Guest OS: {{ vm_result.instance.hw_guest_full_name | default('N/A') }}
+      CPU: {{ vm_cpu }}
+      RAM: {{ vm_memory }} MB
+      Disk: {{ vm_disk }} GB
+      Network: {{ vm_network }}
+      Datacenter: {{ vcenter_datacenter }}
+      Created: {{ lookup('pipe', 'date -u +"%Y-%m-%dT%H:%M:%SZ"') }}
     dest: "./vm_{{ vm_name }}_info.txt"
   delegate_to: localhost
   when: vm_result is succeeded
+
+# Attendre que la VM soit complètement démarrée
+- name: Attendre 30 secondes pour le démarrage complet de la VM
+  ansible.builtin.pause:
+    seconds: 30
+    prompt: "Attente du démarrage complet de la VM et régénération des clés SSH..."
+  when: vm_result is succeeded
+
+# Optionnel : Essayer de régénérer les clés SSH via VMware Tools
+- name: Tenter de régénérer les clés SSH via VMware Tools
+  community.vmware.vmware_vm_shell:
+    hostname: "{{ vcenter_hostname }}"
+    username: "{{ vcenter_username }}"
+    password: "{{ vcenter_password }}"
+    validate_certs: false
+    vm_id: "{{ vm_name }}"
+    vm_username: ansible
+    vm_password: ansible
+    vm_shell: /bin/bash
+    vm_shell_args: "-c 'sudo ssh-keygen -A && sudo systemctl restart ssh.service'"
+    wait_for_process: true
+  delegate_to: localhost
+  ignore_errors: true
+  when:
+    - vm_result is succeeded
+    - vm_result.instance.ipv4 is defined
+  register: ssh_regen
+
+- name: Informer sur l'état SSH
+  ansible.builtin.debug:
+    msg: |
+      {% if ssh_regen is succeeded %}
+      ✅ Clés SSH régénérées avec succès
+      {% else %}
+      ⚠️  Les clés SSH doivent être régénérées manuellement
+
+      Connectez-vous à la console vCenter et exécutez :
+      sudo ssh-keygen -A
+      sudo systemctl restart ssh.service
+
+      Ou utilisez le playbook fix-ssh-keys.yml
+      {% endif %}

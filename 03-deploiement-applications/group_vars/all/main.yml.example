@@ -1,0 +1,43 @@
+---
+# Variables globales pour le déploiement d'applications
+# Copiez ce fichier en main.yml et adaptez les valeurs
+
+# Configuration de connexion SSH et privilèges
+# L'utilisateur ansible doit être créé sur les VMs cibles (voir atelier 02)
+ansible_user: ansible
+ansible_ssh_private_key_file: ~/.ssh/id_rsa  # Chemin vers la clé privée SSH
+ansible_python_interpreter: /usr/bin/python3  # Python sur les VMs Debian
+ansible_become: true  # Élévation de privilèges requise
+ansible_become_method: sudo  # Utiliser sudo pour l'élévation
+ansible_become_user: root  # Devenir root pour les installations
+# ansible_become_pass n'est pas défini car sudo est configuré sans mot de passe
+
+# Configuration générale
+app_name: "workshop-app"
+app_domain: "app.local"
+app_environment: "development"  # development, staging, production
+
+# Configuration nginx
+nginx_port: 80
+nginx_ssl_port: 443
+nginx_server_name: "_"  # Utiliser _ pour accepter tout domaine
+nginx_document_root: "/var/www/html"
+nginx_enable_ssl: true
+nginx_worker_processes: "auto"
+nginx_worker_connections: 1024
+nginx_keepalive_timeout: 65
+
+# Configuration MySQL
+mysql_port: 3306
+mysql_bind_address: "0.0.0.0"  # 127.0.0.1 pour local uniquement
+mysql_database: "app_db"
+mysql_user: "app_user"
+mysql_charset: "utf8mb4"
+mysql_collation: "utf8mb4_unicode_ci"
+
+# Options de sécurité
+enable_firewall: true
+enable_selinux: false  # Mettre à true en production
+
+# Monitoring
+enable_monitoring: false  # Active les métriques Prometheus si true

@@ -1,0 +1,11 @@
+VM Name: db-server-01
+UUID: 422a633c-4c89-abe9-b190-9ac95d0c5ee5
+IP: 172.20.0.49
+Power State: poweredOn
+Guest OS: Debian GNU/Linux 11 (64-bit)
+CPU: 2
+RAM: 2048 MB
+Disk: 20 GB
+Network: VM Network
+Datacenter: Datacenter
+Created: 2025-09-19T16:07:00Z

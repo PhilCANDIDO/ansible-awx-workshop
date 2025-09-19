@@ -1,0 +1,80 @@
+---
+# Playbook pour déployer uniquement la base de données (MySQL)
+#
+# Usage :
+#   ansible-playbook -i inventory/hosts.ini deploy_database.yml --ask-vault-pass
+#
+# Avec variables personnalisées :
+#   ansible-playbook -i inventory/hosts.ini deploy_database.yml --ask-vault-pass \
+#     -e "mysql_database=prod_db mysql_user=prod_user"
+
+- name: Déploiement de la base de données MySQL
+  hosts: "{{ target_hosts | default('databases') }}"
+  gather_facts: true
+  become: true
+
+  pre_tasks:
+    - name: Afficher les informations de déploiement
+      ansible.builtin.debug:
+        msg: |
+          🗄️ Déploiement de MySQL
+
+          Serveur : {{ ansible_hostname }}
+          IP : {{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}
+          Port : {{ mysql_port | default(3306) }}
+          Base de données : {{ mysql_database | default('app_db') }}
+          Utilisateur : {{ mysql_user | default('app_user') }}
+      tags:
+        - always
+
+    - name: Mettre à jour le cache des packages
+      ansible.builtin.package:
+        update_cache: true
+      when: ansible_os_family == "Debian"
+      tags:
+        - always
+
+  roles:
+    - database
+
+  post_tasks:
+    - name: Tester la connexion MySQL locale
+      community.mysql.mysql_info:
+        login_user: "{{ mysql_user }}"
+        login_password: "{{ mysql_password }}"
+        login_db: "{{ mysql_database }}"
+        filter: databases
+      register: mysql_test
+      ignore_errors: true
+      tags:
+        - test
+
+    - name: Afficher le résultat du test
+      ansible.builtin.debug:
+        msg: |
+
+          {% if mysql_test is succeeded %}
+          ✅ MySQL déployé et testé avec succès !
+          {% else %}
+          ⚠️ MySQL déployé mais test de connexion échoué
+          {% endif %}
+
+          Informations de connexion :
+          ---------------------------
+          Host : {{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}
+          Port : {{ mysql_port | default(3306) }}
+          Database : {{ mysql_database | default('app_db') }}
+          User : {{ mysql_user | default('app_user') }}
+
+          Commande de connexion :
+          mysql -h {{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }} \
+                -P {{ mysql_port | default(3306) }} \
+                -u {{ mysql_user | default('app_user') }} \
+                -p {{ mysql_database | default('app_db') }}
+
+          Commandes utiles :
+          - Status : systemctl status mysql
+          - Logs : journalctl -u mysql -f
+          - Console root : mysql -u root -p
+      tags:
+        - always

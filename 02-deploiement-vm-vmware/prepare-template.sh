@@ -129,7 +129,6 @@ ClientAliveCountMax 3
 EOF
 
 systemctl restart sshd
-systemctl enable sshd
 
 # 9. Configuration réseau en DHCP
 log "Configuration du réseau en DHCP..."
@@ -204,7 +203,32 @@ cat > /etc/logrotate.d/template << EOF
 }
 EOF
 
-# 14. Création du script de nettoyage final
+# 14. Créer un service pour régénérer les clés SSH au premier boot
+log "Création du service de régénération des clés SSH..."
+cat > /etc/systemd/system/regenerate-ssh-keys.service << 'EOF'
+[Unit]
+Description=Regenerate SSH host keys on first boot
+Before=ssh.service
+ConditionFileNotEmpty=!/etc/ssh/ssh_host_rsa_key
+ConditionFileNotEmpty=!/etc/ssh/ssh_host_ed25519_key
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ssh-keygen -A
+ExecStartPost=/bin/touch /etc/ssh/.ssh_keys_regenerated
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Activer le service
+systemctl enable regenerate-ssh-keys.service
+log "Service de régénération SSH activé pour le premier boot"
+
+# 15. Création du script de nettoyage final
 log "Création du script de nettoyage final..."
 cat > /root/cleanup-before-template.sh << 'CLEANUP_SCRIPT'
 #!/bin/bash
@@ -249,8 +273,10 @@ rm -rf /var/cache/fontconfig/*
 rm -f /etc/udev/rules.d/70-persistent-net.rules
 rm -f /etc/udev/rules.d/75-persistent-net-generator.rules
 
-# Supprimer les clés SSH de l'hôte
+# Supprimer les clés SSH de l'hôte (seront régénérées au premier boot)
 rm -f /etc/ssh/ssh_host_*
+rm -f /etc/ssh/.ssh_keys_regenerated
+echo "# Les clés SSH seront régénérées automatiquement au premier boot" > /etc/ssh/README_SSH_KEYS
 
 # Réinitialiser machine-id (TRÈS IMPORTANT pour le clonage)
 > /etc/machine-id
@@ -285,12 +311,12 @@ echo ""
 warning "IMPORTANT - Prochaines étapes :"
 echo ""
 echo "1. Redémarrer la VM pour appliquer tous les changements :"
-echo "   ${GREEN}reboot${NC}"
+echo -e "   ${GREEN}reboot${NC}"
 echo ""
 echo "2. Après redémarrage, tester la connexion SSH avec l'utilisateur ansible"
 echo ""
 echo "3. Quand tout est prêt, lancer le script de nettoyage final :"
-echo "   ${GREEN}/root/cleanup-before-template.sh${NC}"
+echo -e "   ${GREEN}/root/cleanup-before-template.sh${NC}"
 echo ""
 echo "4. La VM s'éteindra automatiquement"
 echo ""

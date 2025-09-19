@@ -2,7 +2,9 @@
 # Ces packages sont nécessaires pour interagir avec vCenter via Ansible
 
 # PyVmomi : SDK Python officiel pour VMware vSphere
-pyvmomi>=8.0.0
+# IMPORTANT : Version fixée à 8.0.3.0 pour compatibilité avec community.vmware 4.x
+# La version 9.0.0+ introduit des breaking changes non supportés
+pyvmomi==8.0.3.0
 
 # Requests : Pour les appels HTTP/HTTPS vers vCenter
 requests>=2.28.0

@@ -337,6 +337,35 @@ Avant de convertir la VM en template, vérifier :
 
 ## 🆘 Dépannage courant
 
+### ⚠️ Problème : SSH ne démarre pas après clonage (TRÈS FRÉQUENT)
+
+**Symptôme** :
+- `ssh.service: Failed with result 'exit-code'`
+- Message : "ssh.service has entered the 'failed' state"
+
+**Cause** : Les clés d'hôte SSH ont été supprimées dans le template (sécurité) mais ne sont pas régénérées automatiquement
+
+**Solution immédiate** :
+```bash
+# Se connecter via la console vCenter avec l'utilisateur ansible
+# Puis passer en root et régénérer les clés :
+sudo su -
+ssh-keygen -A
+systemctl restart ssh.service
+systemctl status ssh.service
+```
+
+**Solution automatisée** :
+```bash
+# Utiliser le playbook de correction fourni
+cd 02-deploiement-vm-vmware/
+ansible-playbook -i inventory/hosts.ini fix-ssh-keys.yml --ask-vault-pass
+```
+
+**Prévention** :
+- Le script `prepare-template.sh` mis à jour inclut maintenant un service systemd `regenerate-ssh-keys.service` qui régénère automatiquement les clés au premier boot
+- Le rôle `vmware_vm_deploy` tente de régénérer les clés via VMware Tools après création
+
 ### Problème : La VM clonée n'a pas d'IP
 **Solution** : Vérifier que le DHCP est actif sur le réseau VMware
 
@@ -345,13 +374,6 @@ Avant de convertir la VM en template, vérifier :
 ```bash
 systemctl restart open-vm-tools
 systemctl status open-vm-tools
-```
-
-### Problème : SSH refuse la connexion
-**Solution** : Vérifier que les SSH host keys sont régénérées
-```bash
-ssh-keygen -A
-systemctl restart sshd
 ```
 
 ### Problème : Le hostname n'est pas unique

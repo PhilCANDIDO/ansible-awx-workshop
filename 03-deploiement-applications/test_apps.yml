@@ -1,0 +1,156 @@
+---
+# Playbook de test pour valider le déploiement des applications
+#
+# Usage :
+#   ansible-playbook -i inventory/hosts.ini test_apps.yml
+
+- name: Tests de validation de la stack applicative
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    test_results: []
+
+  tasks:
+    - name: Test 1 - Connectivité aux serveurs web (HTTP)
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[item]['ansible_default_ipv4']['address'] | default(hostvars[item]['ansible_host']) }}"
+        status_code: 200
+        timeout: 10
+      loop: "{{ groups['webservers'] | default([]) }}"
+      when: groups['webservers'] is defined
+      register: http_test
+      ignore_errors: true
+      tags:
+        - test
+        - http
+
+    - name: Test 2 - Endpoint de health check
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[item]['ansible_default_ipv4']['address'] | default(hostvars[item]['ansible_host']) }}/health"
+        status_code: 200
+        timeout: 5
+      loop: "{{ groups['webservers'] | default([]) }}"
+      when: groups['webservers'] is defined
+      register: health_test
+      ignore_errors: true
+      tags:
+        - test
+        - health
+
+    - name: Test 3 - Connectivité MySQL
+      ansible.builtin.wait_for:
+        port: 3306
+        host: "{{ hostvars[item]['ansible_default_ipv4']['address'] | default(hostvars[item]['ansible_host']) }}"
+        timeout: 10
+      loop: "{{ groups['databases'] | default([]) }}"
+      when: groups['databases'] is defined
+      register: mysql_test
+      ignore_errors: true
+      tags:
+        - test
+        - mysql
+
+    - name: Test 4 - Service nginx actif
+      ansible.builtin.command:
+        cmd: "ssh {{ hostvars[item]['ansible_user'] | default('ansible') }}@{{ hostvars[item]['ansible_default_ipv4']['address'] | default(hostvars[item]['ansible_host']) }} 'systemctl is-active nginx'"
+      loop: "{{ groups['webservers'] | default([]) }}"
+      when: groups['webservers'] is defined
+      register: nginx_service
+      ignore_errors: true
+      changed_when: false
+      tags:
+        - test
+        - service
+
+    - name: Test 5 - Service mysql actif
+      ansible.builtin.command:
+        cmd: "ssh {{ hostvars[item]['ansible_user'] | default('ansible') }}@{{ hostvars[item]['ansible_default_ipv4']['address'] | default(hostvars[item]['ansible_host']) }} 'systemctl is-active mysql'"
+      loop: "{{ groups['databases'] | default([]) }}"
+      when: groups['databases'] is defined
+      register: mysql_service
+      ignore_errors: true
+      changed_when: false
+      tags:
+        - test
+        - service
+
+    - name: Générer le rapport de test
+      ansible.builtin.set_fact:
+        test_summary: |
+
+          ==========================================
+          📊 RAPPORT DE TESTS - STACK APPLICATIVE
+          ==========================================
+
+          🌐 TESTS SERVEURS WEB (NGINX)
+          ------------------------------
+          {% if http_test.results is defined %}
+          {% for result in http_test.results %}
+          {% if result.status is defined and result.status == 200 %}
+          ✅ HTTP {{ result.item }} : OK
+          {% else %}
+          ❌ HTTP {{ result.item }} : FAILED
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+
+          {% if health_test.results is defined %}
+          {% for result in health_test.results %}
+          {% if result.status is defined and result.status == 200 %}
+          ✅ Health {{ result.item }} : OK
+          {% else %}
+          ❌ Health {{ result.item }} : FAILED
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+
+          {% if nginx_service.results is defined %}
+          {% for result in nginx_service.results %}
+          {% if result.stdout is defined and result.stdout == 'active' %}
+          ✅ Service nginx {{ result.item }} : ACTIF
+          {% else %}
+          ❌ Service nginx {{ result.item }} : INACTIF
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+
+          🗄️ TESTS BASES DE DONNÉES (MYSQL)
+          ----------------------------------
+          {% if mysql_test.results is defined %}
+          {% for result in mysql_test.results %}
+          {% if result.state is defined and result.state == 'started' %}
+          ✅ Port MySQL {{ result.item }} : OUVERT
+          {% else %}
+          ❌ Port MySQL {{ result.item }} : FERMÉ
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+
+          {% if mysql_service.results is defined %}
+          {% for result in mysql_service.results %}
+          {% if result.stdout is defined and result.stdout == 'active' %}
+          ✅ Service mysql {{ result.item }} : ACTIF
+          {% else %}
+          ❌ Service mysql {{ result.item }} : INACTIF
+          {% endif %}
+          {% endfor %}
+          {% endif %}
+
+          ==========================================
+      tags:
+        - always
+
+    - name: Afficher le rapport de test
+      ansible.builtin.debug:
+        msg: "{{ test_summary }}"
+      tags:
+        - always
+
+    - name: Sauvegarder le rapport dans un fichier
+      ansible.builtin.copy:
+        content: "{{ test_summary }}"
+        dest: "./test_report_{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}.txt"
+      delegate_to: localhost
+      tags:
+        - report

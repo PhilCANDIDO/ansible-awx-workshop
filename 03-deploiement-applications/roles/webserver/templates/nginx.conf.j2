@@ -1,0 +1,61 @@
+# Configuration nginx générée par Ansible
+# {{ ansible_managed }}
+
+user www-data;
+worker_processes {{ nginx_worker_processes }};
+pid /run/nginx.pid;
+error_log {{ nginx_error_log }};
+
+events {
+    worker_connections {{ nginx_worker_connections }};
+    multi_accept {{ nginx_multi_accept }};
+}
+
+http {
+    ##
+    # Paramètres de base
+    ##
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout {{ nginx_keepalive_timeout }};
+    types_hash_max_size 2048;
+    server_tokens {{ nginx_server_tokens }};
+    client_max_body_size {{ nginx_client_max_body_size }};
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    ##
+    # Configuration SSL
+    ##
+{% if nginx_enable_ssl %}
+    ssl_protocols {{ nginx_ssl_protocols }};
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers {{ nginx_ssl_ciphers }};
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+{% endif %}
+
+    ##
+    # Logging
+    ##
+    access_log {{ nginx_access_log }} {{ nginx_log_format }};
+
+    ##
+    # Compression Gzip
+    ##
+{% if nginx_gzip == 'on' %}
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types {{ nginx_gzip_types }};
+{% endif %}
+
+    ##
+    # Configuration des Virtual Hosts
+    ##
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}

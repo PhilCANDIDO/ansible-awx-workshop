@@ -1,0 +1,35 @@
+---
+# Valeurs par défaut pour le rôle webserver (nginx)
+
+# Configuration du serveur
+nginx_port: 80
+nginx_ssl_port: 443
+nginx_server_name: "_"
+nginx_document_root: "/var/www/html"
+nginx_index: "index.html index.htm"
+
+# SSL Configuration
+nginx_enable_ssl: true
+nginx_ssl_protocols: "TLSv1.2 TLSv1.3"
+nginx_ssl_ciphers: "HIGH:!aNULL:!MD5"
+nginx_ssl_certificate: "/etc/nginx/ssl/cert.pem"
+nginx_ssl_certificate_key: "/etc/nginx/ssl/key.pem"
+
+# Worker configuration
+nginx_worker_processes: "auto"
+nginx_worker_connections: 1024
+nginx_multi_accept: "on"
+
+# Timeouts et buffers
+nginx_keepalive_timeout: 65
+nginx_client_max_body_size: "10M"
+nginx_server_tokens: "off"
+
+# Gzip compression
+nginx_gzip: "on"
+nginx_gzip_types: "text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript"
+
+# Logging
+nginx_access_log: "/var/log/nginx/access.log"
+nginx_error_log: "/var/log/nginx/error.log"
+nginx_log_format: "combined"

@@ -1,0 +1,37 @@
+---
+# Valeurs par défaut pour le rôle database (MySQL)
+
+# Configuration MySQL
+mysql_port: 3306
+mysql_bind_address: "0.0.0.0"  # 127.0.0.1 pour local uniquement
+mysql_datadir: "/var/lib/mysql"
+mysql_socket: "/var/run/mysqld/mysqld.sock"
+mysql_pid_file: "/var/run/mysqld/mysqld.pid"
+
+# Base de données et utilisateur par défaut
+mysql_database: "app_db"
+mysql_user: "app_user"
+mysql_host: "%"  # % pour permettre les connexions distantes
+mysql_charset: "utf8mb4"
+mysql_collation: "utf8mb4_unicode_ci"
+
+# Configuration des ressources
+mysql_max_connections: 100
+mysql_max_allowed_packet: "16M"
+mysql_innodb_buffer_pool_size: "256M"
+mysql_innodb_log_file_size: "64M"
+mysql_query_cache_size: "16M"
+mysql_query_cache_limit: "1M"
+
+# Options de sécurité
+mysql_remove_anonymous_users: true
+mysql_remove_test_database: true
+mysql_disable_remote_root: true
+
+# Logs
+mysql_general_log: "OFF"
+mysql_general_log_file: "/var/log/mysql/general.log"
+mysql_error_log: "/var/log/mysql/error.log"
+mysql_slow_query_log: "ON"
+mysql_slow_query_log_file: "/var/log/mysql/slow.log"
+mysql_long_query_time: 2

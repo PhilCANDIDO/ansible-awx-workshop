@@ -1,0 +1,119 @@
+---
+# Playbook principal pour déployer la stack complète (Web + BDD)
+#
+# Usage :
+#   ansible-playbook -i inventory/hosts.ini deploy_apps.yml
+#
+# Pour déployer sur une seule VM :
+#   ansible-playbook -i inventory/hosts.ini deploy_apps.yml -e "single_host=vm-test"
+
+- name: Déploiement de la stack applicative complète
+  hosts: all
+  gather_facts: true
+  become: true
+
+  pre_tasks:
+    - name: Afficher les informations de déploiement
+      ansible.builtin.debug:
+        msg: |
+          🚀 Démarrage du déploiement de la stack applicative
+
+          Environnement : {{ app_environment | default('development') }}
+          Application : {{ app_name | default('workshop-app') }}
+
+          Serveurs ciblés :
+          - Webservers : {{ groups['webservers'] | default([]) | join(', ') }}
+          - Databases : {{ groups['databases'] | default([]) | join(', ') }}
+      run_once: true
+      tags:
+        - always
+
+    - name: Mettre à jour le cache des packages
+      ansible.builtin.package:
+        update_cache: true
+      when: ansible_os_family == "Debian"
+      tags:
+        - always
+
+# Déploiement de la base de données en premier
+- name: Déployer MySQL sur les serveurs de base de données
+  hosts: "{{ single_host | default('databases') }}"
+  gather_facts: false
+  become: true
+
+  roles:
+    - database
+
+  post_tasks:
+    - name: Afficher le statut du déploiement MySQL
+      ansible.builtin.debug:
+        msg: |
+          ✅ MySQL déployé avec succès sur {{ ansible_hostname }}
+
+          Base de données : {{ mysql_database }}
+          Port : {{ mysql_port }}
+      tags:
+        - mysql
+
+# Déploiement du serveur web
+- name: Déployer Nginx sur les serveurs web
+  hosts: "{{ single_host | default('webservers') }}"
+  gather_facts: false
+  become: true
+
+  roles:
+    - webserver
+
+  post_tasks:
+    - name: Afficher le statut du déploiement Nginx
+      ansible.builtin.debug:
+        msg: |
+          ✅ Nginx déployé avec succès sur {{ ansible_hostname }}
+
+          URL HTTP : http://{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}:{{ nginx_port }}
+          URL HTTPS : https://{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}:{{ nginx_ssl_port }}
+      tags:
+        - nginx
+
+# Tests de validation finaux
+- name: Tests de validation de la stack
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: Tester la connectivité aux serveurs web
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[item]['ansible_default_ipv4']['address'] | default(hostvars[item]['ansible_all_ipv4_addresses'][0]) }}"
+        status_code: 200
+        timeout: 10
+      loop: "{{ groups['webservers'] | default([]) }}"
+      when: groups['webservers'] is defined
+      delegate_to: localhost
+      ignore_errors: true
+      tags:
+        - test
+
+    - name: Résumé du déploiement
+      ansible.builtin.debug:
+        msg: |
+
+          ========================================
+          🎉 DÉPLOIEMENT TERMINÉ AVEC SUCCÈS ! 🎉
+          ========================================
+
+          Stack déployée :
+          ----------------
+          ✅ Serveurs Web (Nginx) : {{ groups['webservers'] | default([]) | length }}
+          ✅ Bases de données (MySQL) : {{ groups['databases'] | default([]) | length }}
+
+          Prochaines étapes :
+          -------------------
+          1. Tester l'accès aux serveurs web
+          2. Vérifier la connectivité MySQL
+          3. Configurer les applications
+
+          Documentation : README.md
+          ========================================
+      run_once: true
+      tags:
+        - always

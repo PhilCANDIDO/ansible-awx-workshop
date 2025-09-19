@@ -1,0 +1,206 @@
+---
+# Tâches principales pour le déploiement du serveur web nginx
+
+- name: Installer les packages requis
+  ansible.builtin.package:
+    name:
+      - nginx
+      - openssl
+      - python3-cryptography  # Pour générer les certificats
+    state: present
+  become: true
+  tags:
+    - nginx
+    - packages
+
+- name: Créer le répertoire de configuration SSL
+  ansible.builtin.file:
+    path: /etc/nginx/ssl
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  become: true
+  when: nginx_enable_ssl
+  tags:
+    - nginx
+    - ssl
+
+- name: Générer un certificat SSL auto-signé
+  ansible.builtin.command:
+    cmd: >
+      openssl req -x509 -nodes -days 365 -newkey rsa:2048
+      -keyout {{ nginx_ssl_certificate_key }}
+      -out {{ nginx_ssl_certificate }}
+      -subj "/C=FR/ST=France/L=Paris/O=Workshop/CN={{ nginx_server_name }}"
+    creates: "{{ nginx_ssl_certificate }}"
+  become: true
+  when: nginx_enable_ssl
+  tags:
+    - nginx
+    - ssl
+
+- name: Définir les permissions sur les fichiers SSL
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop:
+    - "{{ nginx_ssl_certificate }}"
+    - "{{ nginx_ssl_certificate_key }}"
+  become: true
+  when: nginx_enable_ssl
+  tags:
+    - nginx
+    - ssl
+
+- name: Créer le répertoire document root
+  ansible.builtin.file:
+    path: "{{ nginx_document_root }}"
+    state: directory
+    mode: '0755'
+    owner: www-data
+    group: www-data
+  become: true
+  tags:
+    - nginx
+
+- name: Déployer le fichier de configuration nginx principal
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  become: true
+  notify: restart nginx
+  tags:
+    - nginx
+    - config
+
+- name: Déployer la configuration du site par défaut
+  ansible.builtin.template:
+    src: default.conf.j2
+    dest: /etc/nginx/sites-available/default
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  become: true
+  notify: reload nginx
+  tags:
+    - nginx
+    - config
+
+- name: Activer le site par défaut
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/default
+    dest: /etc/nginx/sites-enabled/default
+    state: link
+  become: true
+  notify: reload nginx
+  tags:
+    - nginx
+    - config
+
+- name: Déployer la page d'index HTML
+  ansible.builtin.copy:
+    src: index.html
+    dest: "{{ nginx_document_root }}/index.html"
+    owner: www-data
+    group: www-data
+    mode: '0644'
+  become: true
+  tags:
+    - nginx
+    - content
+
+- name: Tester la configuration nginx
+  ansible.builtin.command:
+    cmd: nginx -t
+  become: true
+  changed_when: false
+  tags:
+    - nginx
+    - test
+
+- name: Vérifier si le port HTTPS est en écoute
+  ansible.builtin.shell: |
+    netstat -tln | grep -q ":{{ nginx_ssl_port }} " && echo "listening" || echo "not_listening"
+  register: ssl_port_check
+  changed_when: false
+  become: true
+  when: nginx_enable_ssl
+  tags:
+    - nginx
+    - service
+
+- name: Démarrer et activer le service nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: true
+    daemon_reload: true
+  become: true
+  tags:
+    - nginx
+    - service
+
+- name: Redémarrer nginx si le port SSL n'est pas en écoute
+  ansible.builtin.systemd:
+    name: nginx
+    state: restarted
+  become: true
+  when:
+    - nginx_enable_ssl
+    - ssl_port_check.stdout is defined
+    - ssl_port_check.stdout == "not_listening"
+  tags:
+    - nginx
+    - service
+
+- name: Installer ufw si le firewall est activé
+  ansible.builtin.package:
+    name: ufw
+    state: present
+  become: true
+  when: enable_firewall | default(false)
+  tags:
+    - nginx
+    - firewall
+
+- name: Ouvrir les ports du firewall (si activé)
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - "{{ nginx_port }}"
+    - "{{ nginx_ssl_port }}"
+    - "{{ ansible_ssh_port }}"
+  become: true
+  when: enable_firewall | default(false)
+  tags:
+    - nginx
+    - firewall
+
+- name: Activer le firewall ufw
+  community.general.ufw:
+    state: enabled
+  become: true
+  when: enable_firewall | default(false)
+  tags:
+    - nginx
+    - firewall
+
+- name: Vérifier que nginx répond
+  ansible.builtin.uri:
+    url: "http://localhost:{{ nginx_port }}"
+    follow_redirects: all
+    validate_certs: false
+    status_code: 200
+  tags:
+    - nginx
+    - test

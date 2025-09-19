@@ -1,0 +1,68 @@
+---
+# Playbook pour déployer uniquement le serveur web (nginx)
+#
+# Usage :
+#   ansible-playbook -i inventory/hosts.ini deploy_webserver.yml
+#
+# Avec variables personnalisées :
+#   ansible-playbook -i inventory/hosts.ini deploy_webserver.yml \
+#     -e "nginx_port=8080 nginx_server_name=myapp.local"
+
+- name: Déploiement du serveur web Nginx
+  hosts: "{{ target_hosts | default('webservers') }}"
+  gather_facts: true
+  become: true
+
+  pre_tasks:
+    - name: Afficher les informations de déploiement
+      ansible.builtin.debug:
+        msg: 
+          - "🌐 Déploiement de Nginx"
+          - ""
+          - "Serveur : {{ ansible_hostname }}"
+          - "IP : {{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}"
+          - "Port HTTP : {{ nginx_port | default(80) }}"
+          - "Port HTTPS : {{ nginx_ssl_port | default(443) }}"
+          - "SSL activé : {{ nginx_enable_ssl | default(true) }}"
+      tags:
+        - always
+
+    - name: Mettre à jour le cache des packages
+      ansible.builtin.package:
+        update_cache: true
+      when: ansible_os_family == "Debian"
+      tags:
+        - always
+
+  roles:
+    - webserver
+
+  post_tasks:
+    - name: Vérifier que Nginx est accessible
+      ansible.builtin.uri:
+        url: "http://localhost:{{ nginx_port | default(80) }}"
+        follow_redirects: all
+        validate_certs: false
+        status_code: 200
+      tags:
+        - test
+
+    - name: Afficher les URLs d'accès
+      ansible.builtin.debug:
+        msg: |
+
+          ✅ Nginx déployé avec succès !
+
+          URLs d'accès :
+          - HTTP : http://{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}:{{ nginx_port | default(80) }}
+          {% if nginx_enable_ssl | default(true) %}
+          - HTTPS : https://{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}:{{ nginx_ssl_port | default(443) }}
+          {% endif %}
+          - Health : http://{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}:{{ nginx_port | default(80) }}/health
+
+          Commandes utiles :
+          - Status : systemctl status nginx
+          - Logs : journalctl -u nginx -f
+          - Test config : nginx -t
+      tags:
+        - always

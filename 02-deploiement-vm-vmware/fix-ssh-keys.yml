@@ -1,0 +1,38 @@
+---
+# Playbook pour régénérer les clés SSH sur les VMs clonées
+# À exécuter directement sur la console vCenter ou via VMware Tools
+#
+# Problème : SSH ne démarre pas après clonage car les clés d'hôte sont manquantes
+# Solution : Régénérer les clés SSH
+
+- name: Régénérer les clés SSH sur les VMs nouvellement créées
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    vm_names:
+      - web-server-01
+      - db-server-01
+      # Ajoutez ici les noms de vos VMs
+
+  tasks:
+    - name: Exécuter la commande de régénération des clés SSH via VMware Tools
+      community.vmware.vmware_vm_shell:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: false
+        vm_id: "{{ item }}"
+        vm_username: root
+        vm_password: "P@ssw0rd"  # Mot de passe root du template
+        vm_shell: /bin/bash
+        vm_shell_args: "-c 'ssh-keygen -A && systemctl restart ssh.service'"
+        wait_for_process: true
+      loop: "{{ vm_names }}"
+      register: ssh_fix_result
+
+    - name: Afficher le résultat
+      debug:
+        msg: "SSH corrigé sur {{ item.item }}"
+      loop: "{{ ssh_fix_result.results }}"
+      when: item is succeeded

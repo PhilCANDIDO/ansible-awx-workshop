@@ -1,0 +1,41 @@
+---
+# Variables globales pour le déploiement d'applications
+
+# Configuration de connexion SSH et privilèges
+ansible_user: ansible
+ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+ansible_python_interpreter: /usr/bin/python3
+ansible_become: true
+ansible_become_method: sudo
+ansible_become_user: root
+ansible_ssh_port: 22
+
+# Configuration générale
+app_name: "workshop-app"
+app_domain: "app.local"
+app_environment: "development"  # development, staging, production
+
+# Configuration nginx
+nginx_port: 80
+nginx_ssl_port: 443
+nginx_server_name: "_"  # Utiliser _ pour accepter tout domaine
+nginx_document_root: "/var/www/html"
+nginx_enable_ssl: true
+nginx_worker_processes: "auto"
+nginx_worker_connections: 1024
+nginx_keepalive_timeout: 65
+
+# Configuration MySQL
+mysql_port: 3306
+mysql_bind_address: "0.0.0.0"  # 127.0.0.1 pour local uniquement
+mysql_database: "app_db"
+mysql_user: "app_user"
+mysql_charset: "utf8mb4"
+mysql_collation: "utf8mb4_unicode_ci"
+
+# Options de sécurité
+enable_firewall: true
+enable_selinux: false  # Mettre à true en production
+
+# Monitoring
+enable_monitoring: false  # Active les métriques Prometheus si true

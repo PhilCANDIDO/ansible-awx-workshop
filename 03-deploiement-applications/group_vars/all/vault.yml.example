@@ -1,0 +1,20 @@
+---
+# Fichier vault pour les mots de passe et données sensibles
+#
+# Instructions :
+# 1. Copier ce fichier : cp vault.yml.example vault.yml
+# 2. Modifier les mots de passe dans vault.yml
+# 3. Chiffrer le fichier : ansible-vault encrypt vault.yml
+# 4. Ne JAMAIS commiter vault.yml dans Git
+
+# Mots de passe MySQL
+mysql_root_password: "ChangeMe123!"
+mysql_password: "AppPass123!"
+
+# Certificats SSL (optionnel)
+ssl_certificate: ""
+ssl_certificate_key: ""
+
+# Clés API (si nécessaire)
+api_key: ""
+api_secret: ""

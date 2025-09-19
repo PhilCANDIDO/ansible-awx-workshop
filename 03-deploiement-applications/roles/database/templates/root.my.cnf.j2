@@ -1,0 +1,7 @@
+# Configuration MySQL pour l'utilisateur root
+# {{ ansible_managed }}
+
+[client]
+user = root
+password = {{ mysql_root_password }}
+socket = {{ mysql_socket }}
